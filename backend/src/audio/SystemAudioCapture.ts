@@ -13,6 +13,13 @@ import { AUDIO_FORMAT } from '../protocol/messages.js';
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Path to the ffmpeg binary. In dev it's on PATH ("ffmpeg"); in the packaged
+ * desktop app the Flutter launcher sets FFMPEG_PATH to the bundled binary
+ * (ffmpeg isn't installed on teammates' machines). Resolved once at load.
+ */
+const FFMPEG_PATH = process.env.FFMPEG_PATH ?? 'ffmpeg';
+
 /** Listener for captured PCM chunks. */
 export type AudioChunkListener = (chunk: Buffer) => void;
 
@@ -90,7 +97,7 @@ export class SystemAudioCapture {
       'error',
       'pipe:1',
     ];
-    const proc = spawn('ffmpeg', args);
+    const proc = spawn(FFMPEG_PATH, args);
     this.proc = proc;
 
     proc.stdout.on('data', (data: Buffer) => {
@@ -173,7 +180,7 @@ export class SystemAudioCapture {
  */
 export async function listAudioDevices(): Promise<string> {
   try {
-    await execFileAsync('ffmpeg', [
+    await execFileAsync(FFMPEG_PATH, [
       '-f',
       'avfoundation',
       '-list_devices',
