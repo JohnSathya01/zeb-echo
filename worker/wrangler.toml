@@ -1,0 +1,16 @@
+# zeb Echo token-proxy Worker (PHASE2_PLAN.md §3a, CLAUDE.md §9).
+# Holds the Workers AI credentials so the desktop app ships no secret.
+name = "zeb-echo-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-06-26"
+
+# --- Configuration ---
+# CF_ACCOUNT_ID is plain config (not secret) — the account whose Workers AI
+# quota the proxy spends. Set it here or via `wrangler secret put`.
+[vars]
+# CF_ACCOUNT_ID = "ffa322284ed541fda4f23139c62101de"
+
+# --- Secrets (set with `wrangler secret put`, NEVER commit) ---
+#   wrangler secret put CF_API_TOKEN          # the Workers AI token (REQUIRED)
+#   wrangler secret put PROXY_SHARED_SECRET   # optional gate for the proxy
+#   wrangler secret put CF_ACCOUNT_ID         # if you prefer it as a secret

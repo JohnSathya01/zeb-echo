@@ -39,6 +39,8 @@ export function selectProvider(config: AppConfig): LlmProvider {
         accountId: config.cfAccountId,
         model: config.cfModel,
         apiToken: config.cfApiToken,
+        gatewayUrl: config.cfGatewayUrl,
+        gatewayToken: config.cfGatewayToken,
       });
     case 'fake':
       return new FakeLlmProvider();

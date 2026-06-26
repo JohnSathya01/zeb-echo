@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../protocol/messages.dart';
 import '../services/audio_capture_service.dart';
 import '../services/backend_client.dart';
+import '../services/backend_launcher.dart';
 import 'session_controller.dart';
 
 /// Riverpod is the chosen state-management library (CLAUDE.md §6 recommendation;
@@ -20,8 +21,19 @@ import 'session_controller.dart';
 final useFakeServicesProvider = Provider<bool>((ref) => true);
 
 /// Default WebSocket endpoint of the local backend.
+///
+/// In a packaged desktop app this is overridden at the `ProviderScope` in
+/// `main` with the dynamic `ws://127.0.0.1:<port>` the [BackendLauncher] chose
+/// when it spawned the bundled backend.
 final backendEndpointProvider =
     Provider<Uri>((ref) => Uri.parse('ws://127.0.0.1:8787'));
+
+/// The [BackendLauncher] that spawned the bundled backend, if any.
+///
+/// Null when no backend was spawned (web, or when the client connects to a
+/// separately-run backend). Overridden at the `ProviderScope` in `main` with
+/// the already-started instance so it can be stopped on app exit.
+final backendLauncherProvider = Provider<BackendLauncher?>((ref) => null);
 
 /// The active [BackendClient]. Disposed with the provider container.
 final backendClientProvider = Provider<BackendClient>((ref) {

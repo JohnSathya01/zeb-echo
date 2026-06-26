@@ -22,6 +22,19 @@ export interface AppConfig {
   readonly cfModel: string;
   /** Cloudflare API token — SECRET, from env only (empty = not configured). */
   readonly cfApiToken: string;
+  /**
+   * Token-proxy Worker base URL (CLAUDE.md §9 secrets decision). When set, all
+   * Workers AI calls (LLM + Whisper) go through this proxy and the token is
+   * never read or sent — this is how the shipped desktop app avoids bundling
+   * the secret. Empty = direct-to-Cloudflare mode (dev), using cfApiToken.
+   */
+  readonly cfGatewayUrl: string;
+  /**
+   * Optional shared bearer the proxy requires (matches the Worker's
+   * PROXY_SHARED_SECRET). Gates the proxy; far lower-value than the CF token.
+   * Empty = proxy is open. Only used in proxy mode.
+   */
+  readonly cfGatewayToken: string;
   /** Cloudflare Whisper STT model (used by CloudflareTranscriptionService). */
   readonly cfWhisperModel: string;
   /** Transcription engine: "cloudflare" (Whisper) | "fake". */
@@ -98,6 +111,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cfModel: env.CF_MODEL ?? '@cf/meta/llama-4-scout-17b-16e-instruct',
     // SECRET — never hardcode; only ever read from the environment.
     cfApiToken: env.CF_API_TOKEN ?? '',
+    // Optional token-proxy Worker; when set the app needs no CF token.
+    cfGatewayUrl: env.CF_GATEWAY_URL ?? '',
+    cfGatewayToken: env.CF_GATEWAY_TOKEN ?? '',
     cfWhisperModel: env.CF_WHISPER_MODEL ?? '@cf/openai/whisper-large-v3-turbo',
     transcriptionEngine: (env.TRANSCRIPTION_ENGINE ?? 'fake') as TranscriptionEngine,
     audioSource: (env.AUDIO_SOURCE ?? 'none') as AudioSource,

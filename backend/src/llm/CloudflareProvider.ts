@@ -11,14 +11,24 @@
  */
 import type { LlmParams, LlmProvider, LlmRequest } from './LlmProvider.js';
 import type { TranscriptSegment } from '../protocol/messages.js';
+import {
+  authHeaders,
+  isConfigured,
+  runEndpoint,
+  type CloudflareAccess,
+} from '../cloudflare/access.js';
 
 export interface CloudflareConfig {
-  /** Cloudflare account id. */
+  /** Cloudflare account id (direct mode). */
   readonly accountId: string;
   /** Workers AI model, e.g. "@cf/meta/llama-4-scout-17b-16e-instruct". */
   readonly model: string;
   /** API token (SECRET — from env only). Empty string means "not configured". */
   readonly apiToken: string;
+  /** Token-proxy Worker base URL; when set, calls go through it tokenless. */
+  readonly gatewayUrl: string;
+  /** Optional shared bearer the proxy requires. */
+  readonly gatewayToken?: string;
 }
 
 /** System prompt that shapes the assistant for live-meeting use. */
@@ -47,21 +57,32 @@ export class CloudflareProvider implements LlmProvider {
     this.config = config;
   }
 
+  /** How to reach Workers AI: direct (token) or via the proxy Worker. */
+  private get access(): CloudflareAccess {
+    return {
+      accountId: this.config.accountId,
+      apiToken: this.config.apiToken,
+      gatewayUrl: this.config.gatewayUrl,
+      gatewayToken: this.config.gatewayToken,
+    };
+  }
+
   private get endpoint(): string {
-    return `https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/ai/run/${this.config.model}`;
+    return runEndpoint(this.access, this.config.model);
   }
 
   public async *generate(request: LlmRequest): AsyncIterable<string> {
-    if (this.config.apiToken.length === 0) {
+    if (!isConfigured(this.access)) {
       throw new Error(
-        'CloudflareProvider: CF_API_TOKEN is not set. Export it before starting the backend.',
+        'CloudflareProvider: neither CF_API_TOKEN nor CF_GATEWAY_URL is set. ' +
+          'Configure one before starting the backend.',
       );
     }
 
     const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.config.apiToken}`,
+        ...authHeaders(this.access),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -85,13 +106,15 @@ export class CloudflareProvider implements LlmProvider {
   }
 
   public async complete(prompt: string, params?: LlmParams): Promise<string> {
-    if (this.config.apiToken.length === 0) {
-      throw new Error('CloudflareProvider: CF_API_TOKEN is not set.');
+    if (!isConfigured(this.access)) {
+      throw new Error(
+        'CloudflareProvider: neither CF_API_TOKEN nor CF_GATEWAY_URL is set.',
+      );
     }
     const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.config.apiToken}`,
+        ...authHeaders(this.access),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -118,7 +141,7 @@ export class CloudflareProvider implements LlmProvider {
   }
 
   public async isAvailable(): Promise<boolean> {
-    if (this.config.apiToken.length === 0) {
+    if (!isConfigured(this.access)) {
       return false;
     }
     try {
@@ -128,7 +151,7 @@ export class CloudflareProvider implements LlmProvider {
       const response = await fetch(this.endpoint, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.config.apiToken}`,
+          ...authHeaders(this.access),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

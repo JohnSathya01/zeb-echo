@@ -14,12 +14,21 @@
  */
 import { AUDIO_FORMAT, type TranscriptSegment } from '../protocol/messages.js';
 import type { SegmentListener, TranscriptionService } from './TranscriptionService.js';
+import {
+  authHeaders,
+  runEndpoint,
+  type CloudflareAccess,
+} from '../cloudflare/access.js';
 
 export interface CloudflareTranscriptionConfig {
   readonly accountId: string;
   readonly whisperModel: string;
   /** SECRET — from env only. */
   readonly apiToken: string;
+  /** Token-proxy Worker base URL; when set, calls go through it tokenless. */
+  readonly gatewayUrl: string;
+  /** Optional shared bearer the proxy requires. */
+  readonly gatewayToken?: string;
   /** Window length (ms) of audio sent per Whisper request. Default 4000. */
   readonly windowMs?: number;
   /** Emit verbose per-window logs to the console. */
@@ -130,16 +139,26 @@ export class CloudflareTranscriptionService implements TranscriptionService {
     this.emit(segment);
   }
 
+  /** Direct-or-proxy access for Workers AI Whisper calls. */
+  private get access(): CloudflareAccess {
+    return {
+      accountId: this.config.accountId,
+      apiToken: this.config.apiToken,
+      gatewayUrl: this.config.gatewayUrl,
+      gatewayToken: this.config.gatewayToken,
+    };
+  }
+
   /** POST a WAV-wrapped window to Whisper; return recognised text ("" on failure). */
   private async callWhisper(pcm: Buffer): Promise<string> {
-    const endpoint = `https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/ai/run/${this.config.whisperModel}`;
+    const endpoint = runEndpoint(this.access, this.config.whisperModel);
     const wav = pcmToWav(pcm);
     const audioBase64 = wav.toString('base64');
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.config.apiToken}`,
+          ...authHeaders(this.access),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ audio: audioBase64 }),

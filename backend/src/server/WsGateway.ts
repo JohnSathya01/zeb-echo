@@ -124,6 +124,8 @@ export class WsGateway {
         accountId: this.config.cfAccountId,
         whisperModel: this.config.cfWhisperModel,
         apiToken: this.config.cfApiToken,
+        gatewayUrl: this.config.cfGatewayUrl,
+        gatewayToken: this.config.cfGatewayToken,
         windowMs: this.config.sttWindowMs,
         debug: this.config.sttDebug,
       });
