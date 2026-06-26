@@ -1,0 +1,205 @@
+name: Release
+
+# CD: on a version tag (v*), build self-contained installers for macOS and
+# Windows and attach them to a GitHub Release (PHASE2_PLAN.md §4 CD, M2).
+#
+# Each OS job: build the backend single-exe, fetch a static ffmpeg, build the
+# Flutter app with the REAL backend baked in (REAL_BACKEND=true — NO fakes ship),
+# bundle the exe + ffmpeg into the app, then package (.dmg / .zip).
+#
+# The app still needs Cloudflare access at runtime: set CF_GATEWAY_URL (the
+# token-proxy Worker) so no secret ships. That is provided per-machine/launch,
+# not baked into the build.
+
+on:
+  push:
+    tags: ['v*']
+  # Allow a manual dry run (builds artifacts, skips the GitHub Release step).
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # needed to create the GitHub Release
+
+env:
+  FLUTTER_VERSION: '3.44.4'
+  NODE_VERSION: '24'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  macos:
+    name: Build macOS app (.dmg)
+    runs-on: macos-14 # Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # --- Backend single-exe (universal: arm64 + x64 → lipo) ---------------
+      - name: Build backend executable (universal)
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+          npx pkg . --targets node22-macos-arm64 --output build/zeb-echo-backend-arm64
+          npx pkg . --targets node22-macos-x64   --output build/zeb-echo-backend-x64
+          lipo -create -output build/zeb-echo-backend \
+            build/zeb-echo-backend-arm64 build/zeb-echo-backend-x64
+          file build/zeb-echo-backend
+
+      # --- ffmpeg (static, universal) --------------------------------------
+      # NOTE: macOS has no single official static ffmpeg. We fetch per-arch
+      # static builds and lipo them. If a source URL rots, update here — this is
+      # the most likely first-run breakage (see release notes in PHASE2_PLAN).
+      - name: Fetch static ffmpeg (universal)
+        run: |
+          set -euo pipefail
+          mkdir -p ffmpeg-dl && cd ffmpeg-dl
+          # Apple Silicon (arm64) static build:
+          curl -L -o ffmpeg-arm64.zip "https://www.osxexperts.net/ffmpeg711arm.zip"
+          unzip -o ffmpeg-arm64.zip
+          mv ffmpeg ffmpeg-arm64
+          # Intel (x86_64) static build:
+          curl -L -o ffmpeg-x64.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
+          unzip -o ffmpeg-x64.zip
+          mv ffmpeg ffmpeg-x64
+          lipo -create -output ffmpeg ffmpeg-arm64 ffmpeg-x64 || cp ffmpeg-arm64 ffmpeg
+          chmod +x ffmpeg
+          file ffmpeg
+
+      # --- Flutter app (real backend baked in) -----------------------------
+      - name: Build macOS app
+        working-directory: client
+        # CF_GATEWAY_URL (repo variable) bakes in the token-proxy endpoint so the
+        # shipped app reaches Cloudflare with no secret. The real Cloudflare STT +
+        # LLM are the defaults (no fakes ship). CF_GATEWAY_TOKEN is optional.
+        run: |
+          flutter config --enable-macos-desktop
+          flutter pub get
+          flutter build macos --release \
+            --dart-define=REAL_BACKEND=true \
+            --dart-define=CF_GATEWAY_URL=${{ vars.CF_GATEWAY_URL }} \
+            --dart-define=CF_GATEWAY_TOKEN=${{ secrets.CF_GATEWAY_TOKEN }}
+
+      - name: Bundle backend + ffmpeg into the .app
+        run: |
+          APP=$(find client/build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -1)
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          bash scripts/bundle_macos.sh "$APP" \
+            backend/build/zeb-echo-backend ffmpeg-dl/ffmpeg
+
+      - name: Package .dmg
+        run: |
+          STAGING=$(mktemp -d)
+          cp -R "$APP" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "zeb Echo" -srcfolder "$STAGING" \
+            -ov -format UDZO "zeb-echo-macos.dmg"
+          ls -la zeb-echo-macos.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zeb-echo-macos
+          path: zeb-echo-macos.dmg
+
+  # ---------------------------------------------------------------------------
+  windows:
+    name: Build Windows app (.zip)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Build backend executable
+        working-directory: backend
+        run: |
+          npm ci
+          npm run build
+          npx pkg . --targets node22-win-x64 --output build/zeb-echo-backend.exe
+
+      - name: Fetch static ffmpeg
+        shell: pwsh
+        run: |
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg-dl -Force
+          $exe = Get-ChildItem -Recurse ffmpeg-dl -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $exe.FullName ffmpeg.exe -Force
+          Get-Item ffmpeg.exe | Format-List Name, Length
+
+      - name: Build Windows app
+        working-directory: client
+        run: |
+          flutter config --enable-windows-desktop
+          flutter pub get
+          flutter build windows --release `
+            --dart-define=REAL_BACKEND=true `
+            --dart-define=CF_GATEWAY_URL=${{ vars.CF_GATEWAY_URL }} `
+            --dart-define=CF_GATEWAY_TOKEN=${{ secrets.CF_GATEWAY_TOKEN }}
+
+      - name: Bundle backend + ffmpeg into the app
+        shell: pwsh
+        run: |
+          $rel = "client\build\windows\x64\runner\Release"
+          .\scripts\bundle_windows.ps1 -ReleaseDir $rel `
+            -BackendExe "backend\build\zeb-echo-backend.exe" -FfmpegExe "ffmpeg.exe"
+
+      - name: Package .zip
+        shell: pwsh
+        run: |
+          $rel = "client\build\windows\x64\runner\Release"
+          Compress-Archive -Path "$rel\*" -DestinationPath "zeb-echo-windows.zip" -Force
+          Get-Item zeb-echo-windows.zip | Format-List Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zeb-echo-windows
+          path: zeb-echo-windows.zip
+
+  # ---------------------------------------------------------------------------
+  release:
+    name: Publish GitHub Release
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Attach installers to the Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/zeb-echo-macos/zeb-echo-macos.dmg
+            artifacts/zeb-echo-windows/zeb-echo-windows.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true

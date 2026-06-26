@@ -153,13 +153,25 @@ zeb-echo/
 
 | # | Milestone | Outcome | Effort |
 |---|-----------|---------|--------|
-| **M0** | GitHub repo + CI gates | Code on GitHub, lint/test/analyze run on push | S |
-| **M1** | Bundle backend+ffmpeg, app spawns it | Double-click app → pipeline runs locally (mac) | M |
-| **M2** | CD builds Mac **and** Windows installers | Downloadable installers per OS (audio mac-only) | M |
+| **M0** ✅ | GitHub repo + CI gates | Code on GitHub, lint/test/analyze run on push | S |
+| **M1** ✅ | Bundle backend+ffmpeg, app spawns it | Double-click app → pipeline runs locally (mac) | M |
+| **M2** ✅ | CD builds Mac **and** Windows installers | Downloadable installers per OS (audio mac-only) | M |
 | **M3** | Windows WASAPI capture | Windows teammates get system audio | L |
-| **M4** | Secrets strategy (proxy or per-user) | Token not shipped in the app | M |
+| **M4** ✅ | Secrets strategy (proxy or per-user) | Token not shipped in the app | M |
 | **M5** | macOS ScreenCaptureKit (drop BlackHole) | No per-user BlackHole/routing setup | L |
 | **M6** | Code signing + auto-update | No Gatekeeper/SmartScreen warnings | M |
+
+> **Status (2026-06-26):** M0–M2 + M4 implemented. The CD pipeline
+> (`.github/workflows/release.yml`) builds on a `v*` tag: backend single-exe
+> (universal on mac), static ffmpeg, Flutter app with **REAL_BACKEND baked in
+> (no fakes ship)** + Cloudflare STT/LLM via the token-proxy Worker, bundled and
+> packaged to `.dmg` (mac) / `.zip` (win), attached to a GitHub Release.
+> **Not yet exercised** — the first `v*` tag is its first real run; the
+> static-ffmpeg fetch URLs are the most likely first-run breakage. The proxy
+> Worker (M4) is coded but **not yet deployed** (`worker/`), and `CF_GATEWAY_URL`
+> must be set as a repo variable for the shipped app to reach Cloudflare.
+> **Windows system audio (M3) is still not built** — Windows installs + UI + mic
+> work, but no system-audio capture until M3.
 
 Each milestone is independently shippable. M0–M2 get you *downloadable installers
 fast* (mac fully working, Windows UI+mic, system-audio pending M3).

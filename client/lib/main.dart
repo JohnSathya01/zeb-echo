@@ -23,6 +23,45 @@ const String _backendUrl =
 const bool _spawnBackend =
     bool.fromEnvironment('SPAWN_BACKEND', defaultValue: true);
 
+// --- Backend runtime config (passed as env to the spawned backend) ----------
+// Defaults ship the REAL pipeline: Cloudflare Whisper STT + Cloudflare LLM,
+// reached through the token-proxy Worker (no secret in the app). NO fakes ship.
+// Each is overridable at build time, e.g.
+//   --dart-define=CF_GATEWAY_URL=https://zeb-echo-proxy.acme.workers.dev
+
+/// LLM provider for the spawned backend: cloudflare (default) | ollama | fake.
+const String _llmProvider =
+    String.fromEnvironment('LLM_PROVIDER', defaultValue: 'cloudflare');
+
+/// STT engine for the spawned backend: cloudflare (default) | fake.
+const String _transcriptionEngine =
+    String.fromEnvironment('TRANSCRIPTION_ENGINE', defaultValue: 'cloudflare');
+
+/// Backend audio capture source: blackhole (ffmpeg, default) | none.
+const String _audioSource =
+    String.fromEnvironment('AUDIO_SOURCE', defaultValue: 'blackhole');
+
+/// Token-proxy Worker base URL — how the app reaches Cloudflare with no secret.
+const String _cfGatewayUrl =
+    String.fromEnvironment('CF_GATEWAY_URL', defaultValue: '');
+
+/// Optional shared bearer the proxy requires (matches PROXY_SHARED_SECRET).
+const String _cfGatewayToken =
+    String.fromEnvironment('CF_GATEWAY_TOKEN', defaultValue: '');
+
+/// Build the env passed to the spawned backend. Only non-empty values are
+/// included so the backend's own defaults apply otherwise.
+Map<String, String> _backendEnv() {
+  final env = <String, String>{
+    'LLM_PROVIDER': _llmProvider,
+    'TRANSCRIPTION_ENGINE': _transcriptionEngine,
+    'AUDIO_SOURCE': _audioSource,
+  };
+  if (_cfGatewayUrl.isNotEmpty) env['CF_GATEWAY_URL'] = _cfGatewayUrl;
+  if (_cfGatewayToken.isNotEmpty) env['CF_GATEWAY_TOKEN'] = _cfGatewayToken;
+  return env;
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -32,7 +71,9 @@ Future<void> main() async {
   BackendLauncher? launcher;
 
   if (_useRealBackend && _spawnBackend) {
-    final candidate = createBackendLauncher(const BackendLauncherConfig());
+    final candidate = createBackendLauncher(
+      BackendLauncherConfig(extraEnv: _backendEnv()),
+    );
     if (candidate.isSupported) {
       try {
         // Spawn the bundled backend and wait until its WebSocket is ready, then
