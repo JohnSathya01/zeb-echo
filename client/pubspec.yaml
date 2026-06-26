@@ -1,0 +1,28 @@
+name: zeb_echo_client
+description: "zeb Echo — local AI meeting assistant desktop client (Flutter)."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (chosen per CLAUDE.md §6 recommendation; see README.md).
+  flutter_riverpod: ^2.5.1
+
+  # localhost WebSocket transport to the Node backend (CLAUDE.md §3.2).
+  web_socket_channel: ^3.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+
+# Desktop-only client (Phase 1: macOS + Windows). No mobile/web targets (CLAUDE.md §1).
+flutter:
+  uses-material-design: true

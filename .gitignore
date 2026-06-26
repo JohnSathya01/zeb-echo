@@ -1,0 +1,42 @@
+# Root .gitignore for the zeb-echo monorepo (client/ + backend/).
+# Per-package .gitignore files add more; this is the shared safety net.
+
+# --- Secrets (NEVER commit) ---
+.env
+.env.local
+*.env
+!*.env.example
+**/.env
+!**/.env.example
+
+# --- Node / backend ---
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.npm-cache/
+*.log
+
+# --- Flutter / Dart client ---
+.dart_tool/
+**/.dart_tool/
+**/build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# --- Build artifacts / installers ---
+*.dmg
+*.app/
+*.exe
+*.msi
+*.msix
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# --- Claude/agent local files ---
+.claude/
