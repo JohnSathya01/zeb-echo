@@ -24,6 +24,9 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
+	<!-- Required for the microphone permission prompt (CLAUDE.md §4.1 / §10). -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>zeb Echo captures meeting audio to transcribe the conversation and generate live responses.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

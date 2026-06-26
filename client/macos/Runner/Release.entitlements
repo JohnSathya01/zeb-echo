@@ -2,7 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  App Sandbox is DISABLED intentionally. zeb Echo is distributed outside the
+	  Mac App Store (GitHub Releases) and must (a) bind a localhost server socket,
+	  (b) spawn the bundled Node backend as a child process, and (c) run the
+	  bundled ffmpeg to capture audio — all of which the sandbox forbids
+	  (PHASE2_PLAN.md §1). The sandbox is only required for App Store apps.
+	-->
 	<key>com.apple.security.app-sandbox</key>
+	<false/>
+	<!-- Microphone capture (CLAUDE.md §4.1). -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<!-- Bind the localhost WebSocket the spawned backend serves. -->
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
 	<true/>
 </dict>
 </plist>

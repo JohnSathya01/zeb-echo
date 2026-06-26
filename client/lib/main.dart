@@ -80,9 +80,12 @@ Future<void> main() async {
         // connect the client to the port it chose.
         endpoint = await candidate.start();
         launcher = candidate;
-      } on BackendLaunchException catch (e) {
-        // Fall back to the configured URL; the BackendClient will keep retrying
-        // and the UI surfaces the disconnected state (CLAUDE.md §4.3).
+      } catch (e) {
+        // ANY failure here (BackendLaunchException, SocketException from the
+        // free-port probe under a sandbox, etc.) must NOT prevent the UI from
+        // launching — otherwise the window renders black. Fall back to the
+        // configured URL; the BackendClient keeps retrying and the UI surfaces
+        // the disconnected state (CLAUDE.md §4.3 resilience).
         debugPrint('Backend launch failed, using $endpoint instead: $e');
       }
     }
