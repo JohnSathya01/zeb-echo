@@ -50,17 +50,15 @@ jobs:
           channel: stable
           cache: true
 
-      # --- Backend single-exe (universal: arm64 + x64 → lipo) ---------------
-      - name: Build backend executable (universal)
+      # --- Backend single-exe (per-arch; NOT lipo'd — see bundle_macos.sh) ---
+      - name: Build backend executables (arm64 + x64)
         working-directory: backend
         run: |
           npm ci
           npm run build
           npx pkg . --targets node22-macos-arm64 --output build/zeb-echo-backend-arm64
           npx pkg . --targets node22-macos-x64   --output build/zeb-echo-backend-x64
-          lipo -create -output build/zeb-echo-backend \
-            build/zeb-echo-backend-arm64 build/zeb-echo-backend-x64
-          file build/zeb-echo-backend
+          file build/zeb-echo-backend-arm64 build/zeb-echo-backend-x64
 
       # --- ffmpeg (static, universal) --------------------------------------
       # NOTE: macOS has no single official static ffmpeg. We fetch per-arch
@@ -101,7 +99,9 @@ jobs:
           APP=$(find client/build/macos/Build/Products/Release -maxdepth 1 -name '*.app' | head -1)
           echo "APP=$APP" >> "$GITHUB_ENV"
           bash scripts/bundle_macos.sh "$APP" \
-            backend/build/zeb-echo-backend ffmpeg-dl/ffmpeg
+            backend/build/zeb-echo-backend-arm64 \
+            backend/build/zeb-echo-backend-x64 \
+            ffmpeg-dl/ffmpeg
 
       - name: Package .dmg
         run: |

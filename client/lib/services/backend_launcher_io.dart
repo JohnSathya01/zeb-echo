@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'backend_launcher.dart';
@@ -155,8 +156,12 @@ class IoBackendLauncher implements BackendLauncher {
     final appDir = File(Platform.resolvedExecutable).parent;
     if (Platform.isMacOS) {
       // Foo.app/Contents/MacOS/foo → resources in Contents/Resources/backend/.
+      // The backend is shipped per-arch (NOT lipo'd: pkg appends its payload at
+      // a byte offset that a fat binary corrupts → "Invalid or unexpected token"
+      // in pkg/prelude/bootstrap.js). Pick the slice matching this Mac's CPU.
       final contents = appDir.parent; // Contents/
-      return '${contents.path}/Resources/backend/zeb-echo-backend';
+      final arch = Abi.current() == Abi.macosArm64 ? 'arm64' : 'x64';
+      return '${contents.path}/Resources/backend/zeb-echo-backend-$arch';
     }
     if (Platform.isWindows) {
       // The Flutter exe sits in the install dir; ship the backend alongside.
