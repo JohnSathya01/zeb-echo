@@ -17,6 +17,11 @@ dist/
 .npm-cache/
 *.log
 
+# --- Compiled native capture helpers (build artifacts; source .swift kept) ---
+backend/native/macos/zeb-audio-capture
+backend/native/macos/zeb-audio-capture-*
+*.o
+
 # --- Flutter / Dart client ---
 .dart_tool/
 **/.dart_tool/

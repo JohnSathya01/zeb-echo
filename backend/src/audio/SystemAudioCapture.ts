@@ -20,6 +20,16 @@ const execFileAsync = promisify(execFile);
  */
 const FFMPEG_PATH = process.env.FFMPEG_PATH ?? 'ffmpeg';
 
+/**
+ * Path to the macOS ScreenCaptureKit helper (system-audio capture without
+ * BlackHole). In dev it's the compiled binary under native/macos; in the
+ * packaged app the launcher sets SCK_HELPER_PATH to the bundled binary.
+ */
+const SCK_HELPER_PATH = process.env.SCK_HELPER_PATH ?? 'zeb-audio-capture';
+
+/** How system audio is captured. */
+export type CaptureKind = 'ffmpeg' | 'screencapturekit';
+
 /** Listener for captured PCM chunks. */
 export type AudioChunkListener = (chunk: Buffer) => void;
 
@@ -28,6 +38,11 @@ export interface SystemAudioCaptureConfig {
   readonly deviceIndex: string;
   /** Emitted chunk size in bytes. Default ≈ 100ms of audio. */
   readonly chunkBytes?: number;
+  /**
+   * Capture backend. "ffmpeg" reads an avfoundation device (BlackHole);
+   * "screencapturekit" spawns the native helper (no BlackHole). Default ffmpeg.
+   */
+  readonly kind?: CaptureKind;
 }
 
 /** Listener for capture lifecycle/health changes. */
@@ -76,28 +91,41 @@ export class SystemAudioCapture {
     this.spawnFfmpeg();
   }
 
+  /** Build the [command, args] for the configured capture backend. */
+  private captureCommand(): { command: string; args: string[] } {
+    if (this.config.kind === 'screencapturekit') {
+      // The native helper emits 16 kHz mono s16le on stdout already — no args;
+      // it captures system audio without any virtual device.
+      return { command: SCK_HELPER_PATH, args: [] };
+    }
+    // ffmpeg: -f avfoundation -i ":<idx>" => audio-only input from device <idx>.
+    // Output raw signed 16-bit LE PCM, mono, 16 kHz, to stdout (pipe:1).
+    return {
+      command: FFMPEG_PATH,
+      args: [
+        '-f',
+        'avfoundation',
+        '-i',
+        `:${this.config.deviceIndex}`,
+        '-ac',
+        String(AUDIO_FORMAT.channels),
+        '-ar',
+        String(AUDIO_FORMAT.sampleRate),
+        '-f',
+        's16le',
+        '-loglevel',
+        'error',
+        'pipe:1',
+      ],
+    };
+  }
+
   private spawnFfmpeg(): void {
     if (this.proc !== null) {
       return;
     }
-    // -f avfoundation -i ":<idx>"  => audio-only input from device <idx>.
-    // Output raw signed 16-bit LE PCM, mono, 16 kHz, to stdout (pipe:1).
-    const args = [
-      '-f',
-      'avfoundation',
-      '-i',
-      `:${this.config.deviceIndex}`,
-      '-ac',
-      String(AUDIO_FORMAT.channels),
-      '-ar',
-      String(AUDIO_FORMAT.sampleRate),
-      '-f',
-      's16le',
-      '-loglevel',
-      'error',
-      'pipe:1',
-    ];
-    const proc = spawn(FFMPEG_PATH, args);
+    const { command, args } = this.captureCommand();
+    const proc = spawn(command, args);
     this.proc = proc;
 
     proc.stdout.on('data', (data: Buffer) => {

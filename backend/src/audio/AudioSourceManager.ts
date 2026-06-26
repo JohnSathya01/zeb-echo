@@ -13,7 +13,7 @@ import {
   type TranscriptSegment,
 } from '../protocol/messages.js';
 import type { TranscriptionService } from '../pipeline/TranscriptionService.js';
-import { SystemAudioCapture } from './SystemAudioCapture.js';
+import { SystemAudioCapture, type CaptureKind } from './SystemAudioCapture.js';
 
 /** Human-facing speaker label per source. */
 const SPEAKER_LABEL: Record<AudioSourceId, string> = {
@@ -42,6 +42,8 @@ export interface AudioSourceManagerConfig {
   /** Whether each source starts enabled. */
   readonly micEnabled: boolean;
   readonly systemEnabled: boolean;
+  /** How the SYSTEM source is captured (ffmpeg vs ScreenCaptureKit). */
+  readonly systemCaptureKind: CaptureKind;
   /** Factory for a per-source transcription service. */
   readonly createTranscription: TranscriptionFactory;
 }
@@ -146,7 +148,14 @@ export class AudioSourceManager {
       });
     });
 
-    const capture = new SystemAudioCapture({ deviceIndex: src.deviceIndex });
+    // The mic is always a real avfoundation device (ffmpeg); the system source
+    // uses the configured backend (ScreenCaptureKit when set — no BlackHole).
+    const kind: CaptureKind =
+      src.id === 'system' ? this.cfg.systemCaptureKind : 'ffmpeg';
+    const capture = new SystemAudioCapture({
+      deviceIndex: src.deviceIndex,
+      kind,
+    });
     capture.onChunk((chunk) => transcription.pushAudio(chunk));
     capture.onStatus(({ ok, detail }) => this.emitStatus(src.id, ok, detail));
 

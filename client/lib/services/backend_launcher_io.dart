@@ -50,12 +50,15 @@ class IoBackendLauncher implements BackendLauncher {
 
     final port = await findFreePort(_config.host);
     final ffmpegPath = _config.ffmpegPath ?? _defaultFfmpegPath();
+    final sckHelperPath = _defaultSckHelperPath();
 
     final env = <String, String>{
       'PORT': '$port',
       'HOST': _config.host,
       // Point the backend at the bundled ffmpeg (it isn't on a teammate's PATH).
       if (ffmpegPath != null) 'FFMPEG_PATH': ffmpegPath,
+      // macOS ScreenCaptureKit helper (system audio without BlackHole).
+      if (sckHelperPath != null) 'SCK_HELPER_PATH': sckHelperPath,
       ..._config.extraEnv,
     };
 
@@ -182,6 +185,15 @@ class IoBackendLauncher implements BackendLauncher {
       return '${appDir.path}\\backend\\ffmpeg.exe';
     }
     return '${appDir.path}/backend/ffmpeg';
+  }
+
+  /// Location of the bundled macOS ScreenCaptureKit helper (null off macOS).
+  static String? _defaultSckHelperPath() {
+    if (!Platform.isMacOS) {
+      return null;
+    }
+    final contents = File(Platform.resolvedExecutable).parent.parent;
+    return '${contents.path}/Resources/backend/zeb-audio-capture';
   }
 }
 

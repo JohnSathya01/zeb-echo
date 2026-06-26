@@ -37,9 +37,10 @@ const String _llmProvider =
 const String _transcriptionEngine =
     String.fromEnvironment('TRANSCRIPTION_ENGINE', defaultValue: 'cloudflare');
 
-/// Backend audio capture source: blackhole (ffmpeg, default) | none.
+/// Backend audio capture source. Default screencapturekit: native macOS system
+/// audio with NO BlackHole/Multi-Output and working volume keys (macOS 13+).
 const String _audioSource =
-    String.fromEnvironment('AUDIO_SOURCE', defaultValue: 'blackhole');
+    String.fromEnvironment('AUDIO_SOURCE', defaultValue: 'screencapturekit');
 
 /// Token-proxy Worker base URL — how the app reaches Cloudflare with no secret.
 const String _cfGatewayUrl =

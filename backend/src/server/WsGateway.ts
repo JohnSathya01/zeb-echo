@@ -46,8 +46,14 @@ export class WsGateway {
   public async start(): Promise<{ host: string; port: number }> {
     // Auto-detect avfoundation device indices by name when not explicitly set,
     // so the app works on any Mac without a hardcoded AUDIO_DEVICE_INDEX
-    // (CLAUDE.md §9). Explicit env values always win.
-    if (this.config.audioSource === 'blackhole') {
+    // (CLAUDE.md §9). Explicit env values always win. ScreenCaptureKit needs no
+    // device for system audio, but the mic source still uses an avfoundation
+    // device, so resolve whenever the backend captures or the mic is enabled.
+    const needsDevices =
+      this.config.audioSource === 'blackhole' ||
+      (this.config.audioSource === 'screencapturekit' &&
+        this.config.micEnabledDefault);
+    if (needsDevices) {
       await this.resolveDeviceIndices();
     }
 
@@ -117,7 +123,9 @@ export class WsGateway {
     // labelled segments into the orchestrator — so the orchestrator gets no
     // single `transcription`. Otherwise (client-fed audio) keep the legacy
     // single transcription on the pushAudio path.
-    const backendCaptures = this.config.audioSource === 'blackhole';
+    const backendCaptures =
+      this.config.audioSource === 'blackhole' ||
+      this.config.audioSource === 'screencapturekit';
 
     const orchestrator = new SessionOrchestrator(
       {
@@ -197,6 +205,10 @@ export class WsGateway {
       systemDeviceIndex: this.resolvedSystemIndex,
       micEnabled: this.config.micEnabledDefault,
       systemEnabled: this.config.systemEnabledDefault,
+      systemCaptureKind:
+        this.config.audioSource === 'screencapturekit'
+          ? 'screencapturekit'
+          : 'ffmpeg',
       createTranscription: () => this.createTranscription(),
     });
 

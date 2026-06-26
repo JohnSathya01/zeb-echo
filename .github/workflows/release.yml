@@ -60,6 +60,20 @@ jobs:
           npx pkg . --targets node22-macos-x64   --output build/zeb-echo-backend-x64
           file build/zeb-echo-backend-arm64 build/zeb-echo-backend-x64
 
+      # --- macOS ScreenCaptureKit helper (system audio, no BlackHole) ---
+      - name: Build ScreenCaptureKit helper (universal)
+        working-directory: backend/native/macos
+        run: |
+          swiftc -O -target arm64-apple-macos13 \
+            -framework ScreenCaptureKit -framework AVFoundation \
+            -o zeb-audio-capture-arm64 zeb-audio-capture.swift
+          swiftc -O -target x86_64-apple-macos13 \
+            -framework ScreenCaptureKit -framework AVFoundation \
+            -o zeb-audio-capture-x64 zeb-audio-capture.swift
+          lipo -create -output zeb-audio-capture \
+            zeb-audio-capture-arm64 zeb-audio-capture-x64
+          file zeb-audio-capture
+
       # --- ffmpeg (static, universal) --------------------------------------
       # NOTE: macOS has no single official static ffmpeg. We fetch per-arch
       # static builds and lipo them. If a source URL rots, update here — this is
@@ -101,7 +115,8 @@ jobs:
           bash scripts/bundle_macos.sh "$APP" \
             backend/build/zeb-echo-backend-arm64 \
             backend/build/zeb-echo-backend-x64 \
-            ffmpeg-dl/ffmpeg
+            ffmpeg-dl/ffmpeg \
+            backend/native/macos/zeb-audio-capture
 
       - name: Package .dmg
         run: |

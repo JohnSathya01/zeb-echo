@@ -27,6 +27,10 @@
 	<!-- Required for the microphone permission prompt (CLAUDE.md §4.1 / §10). -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>zeb Echo captures meeting audio to transcribe the conversation and generate live responses.</string>
+	<!-- Screen & System Audio Recording prompt for ScreenCaptureKit system-audio
+	     capture (no BlackHole needed). -->
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>zeb Echo captures your system audio (the meeting you hear) to transcribe it and generate live responses. No video is recorded.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
