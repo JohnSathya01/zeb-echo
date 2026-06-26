@@ -9,6 +9,7 @@
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { AppConfig } from '../config.js';
 import { AudioSourceManager } from '../audio/AudioSourceManager.js';
+import { resolveAudioDevices } from '../audio/resolveDevices.js';
 import { selectProvider } from '../llm/index.js';
 import { CloudflareTranscriptionService } from '../pipeline/CloudflareTranscriptionService.js';
 import {
@@ -33,13 +34,23 @@ import { SessionOrchestrator } from '../session/SessionOrchestrator.js';
 export class WsGateway {
   private readonly config: AppConfig;
   private server: WebSocketServer | null = null;
+  /** Auto-detected device indices (by name), filled at start(). */
+  private resolvedMicIndex = '';
+  private resolvedSystemIndex = '';
 
   constructor(config: AppConfig) {
     this.config = config;
   }
 
   /** Start listening. Resolves once the server is accepting connections. */
-  public start(): Promise<{ host: string; port: number }> {
+  public async start(): Promise<{ host: string; port: number }> {
+    // Auto-detect avfoundation device indices by name when not explicitly set,
+    // so the app works on any Mac without a hardcoded AUDIO_DEVICE_INDEX
+    // (CLAUDE.md §9). Explicit env values always win.
+    if (this.config.audioSource === 'blackhole') {
+      await this.resolveDeviceIndices();
+    }
+
     return new Promise((resolve, reject) => {
       const server = new WebSocketServer({
         host: this.config.host,
@@ -54,6 +65,35 @@ export class WsGateway {
 
       this.server = server;
     });
+  }
+
+  /** Resolve mic/system device indices by name (explicit config wins). */
+  private async resolveDeviceIndices(): Promise<void> {
+    try {
+      const detected = await resolveAudioDevices();
+      this.resolvedSystemIndex =
+        this.config.audioDeviceIndex || (detected.system ?? '');
+      this.resolvedMicIndex = this.config.micDeviceIndex || (detected.mic ?? '');
+      const names = detected.devices
+        .map((d) => `[${d.index}] ${d.name}`)
+        .join(', ');
+      console.log(`[audio] devices: ${names || '(none)'}`);
+      console.log(
+        `[audio] using system index "${this.resolvedSystemIndex}", ` +
+          `mic index "${this.resolvedMicIndex}"`,
+      );
+      if (this.resolvedSystemIndex === '') {
+        console.warn(
+          '[audio] No BlackHole/loopback device found — system audio capture ' +
+            'will not work until one is installed. Mic capture still works.',
+        );
+      }
+    } catch (err) {
+      console.warn('[audio] device auto-detection failed:', err);
+      // Fall back to whatever was configured (possibly empty).
+      this.resolvedSystemIndex = this.config.audioDeviceIndex;
+      this.resolvedMicIndex = this.config.micDeviceIndex;
+    }
   }
 
   /** Stop the server and close all connections. */
@@ -153,8 +193,8 @@ export class WsGateway {
     socket: WebSocket,
   ): AudioSourceManager {
     const manager = new AudioSourceManager({
-      micDeviceIndex: this.config.micDeviceIndex,
-      systemDeviceIndex: this.config.audioDeviceIndex,
+      micDeviceIndex: this.resolvedMicIndex,
+      systemDeviceIndex: this.resolvedSystemIndex,
       micEnabled: this.config.micEnabledDefault,
       systemEnabled: this.config.systemEnabledDefault,
       createTranscription: () => this.createTranscription(),
