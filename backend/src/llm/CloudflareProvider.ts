@@ -146,7 +146,10 @@ export class CloudflareProvider implements LlmProvider {
     }
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2_000);
+      // 8s, not 2s: a real Workers AI round trip is ~2s direct, and more via the
+      // token proxy (extra hop + possible Worker cold start measured ~1.8-2.6s).
+      // A 2s budget produced false "unavailable" on a healthy proxy.
+      const timeout = setTimeout(() => controller.abort(), 8_000);
       // A tiny non-streaming probe confirms creds + model are reachable.
       const response = await fetch(this.endpoint, {
         method: 'POST',

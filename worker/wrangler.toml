@@ -8,7 +8,7 @@ compatibility_date = "2026-06-26"
 # CF_ACCOUNT_ID is plain config (not secret) — the account whose Workers AI
 # quota the proxy spends. Set it here or via `wrangler secret put`.
 [vars]
-# CF_ACCOUNT_ID = "ffa322284ed541fda4f23139c62101de"
+CF_ACCOUNT_ID = "ffa322284ed541fda4f23139c62101de"
 
 # --- Secrets (set with `wrangler secret put`, NEVER commit) ---
 #   wrangler secret put CF_API_TOKEN          # the Workers AI token (REQUIRED)
