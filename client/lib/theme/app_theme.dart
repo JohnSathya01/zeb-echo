@@ -19,12 +19,12 @@ abstract final class AppTheme {
   /// Corner radius used across panels and controls.
   static const double radius = 10;
 
-  /// zeb's signature serif-italic emphasis (used on accented words like the
-  /// "Echo" in the product name), rendered in the lime accent.
+  /// The "Echo" wordmark style — Space Grotesk, bold, tight tracking, in the
+  /// lime accent. A clean modern geometric sans for a premium, techy feel.
   static const TextStyle brandEmphasis = TextStyle(
-    fontFamily: 'Georgia',
-    fontStyle: FontStyle.italic,
-    fontWeight: FontWeight.w600,
+    fontFamily: 'SpaceGrotesk',
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.5,
     color: AppColors.accent,
   );
 

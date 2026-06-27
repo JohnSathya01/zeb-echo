@@ -25,26 +25,28 @@ class EchoLogo extends StatelessWidget {
 class _EchoLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // Origin sits to the left-of-centre so the arcs sweep rightward, reading as
-    // sound emanating outward.
-    final origin = Offset(size.width * 0.30, size.height * 0.5);
-    final maxRadius = size.width * 0.46;
+    final w = size.width;
+    // Origin sits left-of-centre so arcs sweep rightward — sound emanating out.
+    final origin = Offset(w * 0.26, size.height * 0.5);
 
-    // Three concentric arcs, fading outward, opening to the right (the "echo").
+    // Three evenly-spaced concentric arcs opening right (the "echo"), with a
+    // gentle outward taper in weight + opacity for a refined, balanced look.
     const arcCount = 3;
+    const sweep = 2.5; // radians (~143°)
+    const start = -sweep / 2;
+    final baseRadius = w * 0.20;
+    final ringGap = w * 0.15;
+
     for (var i = 0; i < arcCount; i++) {
-      final t = (i + 1) / arcCount;
-      final radius = maxRadius * t;
-      final opacity = 1.0 - i * 0.28;
+      final radius = baseRadius + ringGap * i;
+      // Outer rings slightly thinner + more transparent → sense of fade-out.
+      final strokeW = w * (0.105 - i * 0.012);
+      final opacity = 1.0 - i * 0.26;
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
-        ..strokeWidth = size.width * 0.085
+        ..strokeWidth = strokeW
         ..color = AppColors.accent.withValues(alpha: opacity);
-
-      // Sweep an arc opening toward the right (~150° centred on 0 rad).
-      const sweep = 2.6; // radians (~150°)
-      const start = -sweep / 2;
       canvas.drawArc(
         Rect.fromCircle(center: origin, radius: radius),
         start,
@@ -58,7 +60,7 @@ class _EchoLogoPainter extends CustomPainter {
     final dot = Paint()
       ..style = PaintingStyle.fill
       ..color = AppColors.accent;
-    canvas.drawCircle(origin, size.width * 0.085, dot);
+    canvas.drawCircle(origin, w * 0.075, dot);
   }
 
   @override

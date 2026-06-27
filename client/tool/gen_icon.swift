@@ -41,18 +41,21 @@ ctx.drawLinearGradient(
     grad, start: CGPoint(x: 0, y: s), end: CGPoint(x: 0, y: 0), options: [])
 ctx.restoreGState()
 
-// Echo ripples — concentric arcs opening right, plus an origin dot.
-let origin = CGPoint(x: s * 0.40, y: s * 0.5)
-let maxR = s * 0.30
+// Echo ripples — refined: evenly-spaced concentric arcs opening right with a
+// gentle outward taper in weight + opacity, plus an origin dot. Matches the
+// in-app EchoLogo geometry.
+let origin = CGPoint(x: s * 0.38, y: s * 0.5)
 ctx.setLineCap(.round)
 let arcCount = 3
+let baseR = s * 0.13
+let ringGap = s * 0.105
+let sweep: CGFloat = 2.5
 for i in 0..<arcCount {
-    let t = CGFloat(i + 1) / CGFloat(arcCount)
-    let r = maxR * t
+    let r = baseR + ringGap * CGFloat(i)
+    let strokeW = s * (0.072 - CGFloat(i) * 0.009)
     let opacity = 1.0 - CGFloat(i) * 0.26
     ctx.setStrokeColor(accent.copy(alpha: opacity)!)
-    ctx.setLineWidth(s * 0.055)
-    let sweep: CGFloat = 2.6
+    ctx.setLineWidth(strokeW)
     ctx.addArc(
         center: origin, radius: r, startAngle: -sweep / 2, endAngle: sweep / 2,
         clockwise: false)
@@ -61,8 +64,8 @@ for i in 0..<arcCount {
 ctx.setFillColor(accent)
 ctx.fillEllipse(
     in: CGRect(
-        x: origin.x - s * 0.045, y: origin.y - s * 0.045, width: s * 0.09,
-        height: s * 0.09))
+        x: origin.x - s * 0.05, y: origin.y - s * 0.05, width: s * 0.10,
+        height: s * 0.10))
 
 guard let img = ctx.makeImage() else { fatalError("img") }
 let rep = NSBitmapImageRep(cgImage: img)
