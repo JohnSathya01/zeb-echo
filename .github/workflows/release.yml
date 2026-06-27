@@ -118,6 +118,25 @@ jobs:
             ffmpeg-dl/ffmpeg \
             backend/native/macos/zeb-audio-capture
 
+      # Flutter ad-hoc-signs the .app at build time, sealing its contents. We
+      # then copied binaries IN, which breaks that seal ("a sealed resource is
+      # missing or invalid") — and macOS can't match the TCC Screen-Recording
+      # grant to an invalid signature, so it re-prompts forever. Re-sign the
+      # bundle (deep, ad-hoc) so the seal includes the bundled binaries and the
+      # app has a stable identity the permission can stick to.
+      - name: Re-sign the .app (ad-hoc) so the seal includes bundled binaries
+        run: |
+          # Sign nested binaries first, then the app bundle (inside-out).
+          codesign --force --sign - --timestamp=none \
+            "$APP/Contents/Resources/backend/zeb-echo-backend-arm64" \
+            "$APP/Contents/Resources/backend/zeb-echo-backend-x64" \
+            "$APP/Contents/Resources/backend/ffmpeg" \
+            "$APP/Contents/Resources/backend/zeb-audio-capture"
+          codesign --force --deep --sign - \
+            --entitlements client/macos/Runner/Release.entitlements "$APP"
+          echo "--- verify ---"
+          codesign --verify --deep --verbose=2 "$APP"
+
       - name: Package .dmg
         run: |
           STAGING=$(mktemp -d)
