@@ -156,7 +156,7 @@ zeb-echo/
 | **M0** ✅ | GitHub repo + CI gates | Code on GitHub, lint/test/analyze run on push | S |
 | **M1** ✅ | Bundle backend+ffmpeg, app spawns it | Double-click app → pipeline runs locally (mac) | M |
 | **M2** ✅ | CD builds Mac **and** Windows installers | Downloadable installers per OS (audio mac-only) | M |
-| **M3** | Windows WASAPI capture | Windows teammates get system audio | L |
+| **M3** 🔨 | Windows WASAPI capture | Windows teammates get system audio | L (built, needs Windows verify) |
 | **M4** ✅ | Secrets strategy (proxy or per-user) | Token not shipped in the app | M |
 | **M5** ✅ | macOS ScreenCaptureKit (drop BlackHole) | No per-user BlackHole/routing setup | L |
 | **M6** | Code signing + auto-update | No Gatekeeper/SmartScreen warnings | M |

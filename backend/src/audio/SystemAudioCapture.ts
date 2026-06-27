@@ -27,8 +27,16 @@ const FFMPEG_PATH = process.env.FFMPEG_PATH ?? 'ffmpeg';
  */
 const SCK_HELPER_PATH = process.env.SCK_HELPER_PATH ?? 'zeb-audio-capture';
 
+/**
+ * Path to the Windows WASAPI loopback helper (system-audio capture without a
+ * virtual device). In dev it's the compiled binary under native/windows; in the
+ * packaged app the launcher sets WASAPI_HELPER_PATH to the bundled binary.
+ */
+const WASAPI_HELPER_PATH =
+  process.env.WASAPI_HELPER_PATH ?? 'zeb-audio-capture.exe';
+
 /** How system audio is captured. */
-export type CaptureKind = 'ffmpeg' | 'screencapturekit';
+export type CaptureKind = 'ffmpeg' | 'screencapturekit' | 'wasapi';
 
 /** Listener for captured PCM chunks. */
 export type AudioChunkListener = (chunk: Buffer) => void;
@@ -97,6 +105,10 @@ export class SystemAudioCapture {
       // The native helper emits 16 kHz mono s16le on stdout already — no args;
       // it captures system audio without any virtual device.
       return { command: SCK_HELPER_PATH, args: [] };
+    }
+    if (this.config.kind === 'wasapi') {
+      // Windows WASAPI loopback helper — same stdout-PCM contract, no args.
+      return { command: WASAPI_HELPER_PATH, args: [] };
     }
     // ffmpeg: -f avfoundation -i ":<idx>" => audio-only input from device <idx>.
     // Output raw signed 16-bit LE PCM, mono, 16 kHz, to stdout (pipe:1).

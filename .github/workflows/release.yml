@@ -160,6 +160,17 @@ jobs:
           npm run build
           npx pkg . --targets node22-win-x64 --output build/zeb-echo-backend.exe
 
+      # --- Windows WASAPI loopback helper (native system audio, no virtual dev) ---
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build WASAPI capture helper
+        shell: cmd
+        working-directory: backend/native/windows
+        run: |
+          cl /O2 /EHsc /Fe:zeb-audio-capture.exe zeb-audio-capture.cpp ole32.lib
+          dir zeb-audio-capture.exe
+
       - name: Fetch static ffmpeg
         shell: pwsh
         run: |
@@ -185,7 +196,8 @@ jobs:
         run: |
           $rel = "client\build\windows\x64\runner\Release"
           .\scripts\bundle_windows.ps1 -ReleaseDir $rel `
-            -BackendExe "backend\build\zeb-echo-backend.exe" -FfmpegExe "ffmpeg.exe"
+            -BackendExe "backend\build\zeb-echo-backend.exe" -FfmpegExe "ffmpeg.exe" `
+            -WasapiHelper "backend\native\windows\zeb-audio-capture.exe"
 
       - name: Package .zip
         shell: pwsh

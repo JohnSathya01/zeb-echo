@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -37,10 +38,32 @@ const String _llmProvider =
 const String _transcriptionEngine =
     String.fromEnvironment('TRANSCRIPTION_ENGINE', defaultValue: 'cloudflare');
 
-/// Backend audio capture source. Default screencapturekit: native macOS system
-/// audio with NO BlackHole/Multi-Output and working volume keys (macOS 13+).
-const String _audioSource =
-    String.fromEnvironment('AUDIO_SOURCE', defaultValue: 'screencapturekit');
+/// Explicit backend audio-capture source override (empty = pick per-OS).
+const String _audioSourceOverride =
+    String.fromEnvironment('AUDIO_SOURCE', defaultValue: '');
+
+/// Resolve the backend audio-capture source. An explicit AUDIO_SOURCE wins;
+/// otherwise default to each OS's native system-audio capturer — macOS
+/// ScreenCaptureKit (no BlackHole), Windows WASAPI loopback — so both platforms
+/// capture system audio out of the box with no virtual device.
+String _resolveAudioSource() {
+  if (_audioSourceOverride.isNotEmpty) {
+    return _audioSourceOverride;
+  }
+  // defaultTargetPlatform works on every target (incl. web) — unlike dart:io's
+  // Platform, which doesn't compile for web.
+  if (kIsWeb) {
+    return 'none';
+  }
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.windows:
+      return 'wasapi';
+    case TargetPlatform.macOS:
+      return 'screencapturekit';
+    default:
+      return 'none';
+  }
+}
 
 /// Token-proxy Worker base URL — how the app reaches Cloudflare with no secret.
 const String _cfGatewayUrl =
@@ -56,7 +79,7 @@ Map<String, String> _backendEnv() {
   final env = <String, String>{
     'LLM_PROVIDER': _llmProvider,
     'TRANSCRIPTION_ENGINE': _transcriptionEngine,
-    'AUDIO_SOURCE': _audioSource,
+    'AUDIO_SOURCE': _resolveAudioSource(),
   };
   if (_cfGatewayUrl.isNotEmpty) env['CF_GATEWAY_URL'] = _cfGatewayUrl;
   if (_cfGatewayToken.isNotEmpty) env['CF_GATEWAY_TOKEN'] = _cfGatewayToken;

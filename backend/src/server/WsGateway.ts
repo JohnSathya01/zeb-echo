@@ -125,7 +125,8 @@ export class WsGateway {
     // single transcription on the pushAudio path.
     const backendCaptures =
       this.config.audioSource === 'blackhole' ||
-      this.config.audioSource === 'screencapturekit';
+      this.config.audioSource === 'screencapturekit' ||
+      this.config.audioSource === 'wasapi';
 
     const orchestrator = new SessionOrchestrator(
       {
@@ -208,7 +209,9 @@ export class WsGateway {
       systemCaptureKind:
         this.config.audioSource === 'screencapturekit'
           ? 'screencapturekit'
-          : 'ffmpeg',
+          : this.config.audioSource === 'wasapi'
+            ? 'wasapi'
+            : 'ffmpeg',
       createTranscription: () => this.createTranscription(),
     });
 

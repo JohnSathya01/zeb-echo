@@ -51,6 +51,7 @@ class IoBackendLauncher implements BackendLauncher {
     final port = await findFreePort(_config.host);
     final ffmpegPath = _config.ffmpegPath ?? _defaultFfmpegPath();
     final sckHelperPath = _defaultSckHelperPath();
+    final wasapiHelperPath = _defaultWasapiHelperPath();
 
     final env = <String, String>{
       'PORT': '$port',
@@ -59,6 +60,8 @@ class IoBackendLauncher implements BackendLauncher {
       if (ffmpegPath != null) 'FFMPEG_PATH': ffmpegPath,
       // macOS ScreenCaptureKit helper (system audio without BlackHole).
       if (sckHelperPath != null) 'SCK_HELPER_PATH': sckHelperPath,
+      // Windows WASAPI loopback helper (system audio without a virtual device).
+      if (wasapiHelperPath != null) 'WASAPI_HELPER_PATH': wasapiHelperPath,
       ..._config.extraEnv,
     };
 
@@ -194,6 +197,15 @@ class IoBackendLauncher implements BackendLauncher {
     }
     final contents = File(Platform.resolvedExecutable).parent.parent;
     return '${contents.path}/Resources/backend/zeb-audio-capture';
+  }
+
+  /// Location of the bundled Windows WASAPI helper (null off Windows).
+  static String? _defaultWasapiHelperPath() {
+    if (!Platform.isWindows) {
+      return null;
+    }
+    final appDir = File(Platform.resolvedExecutable).parent;
+    return '${appDir.path}\\backend\\zeb-audio-capture.exe';
   }
 }
 

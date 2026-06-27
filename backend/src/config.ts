@@ -73,10 +73,12 @@ export type TranscriptionEngine = 'cloudflare' | 'fake';
  * Where backend-side audio capture reads from.
  *  - "screencapturekit": native macOS system-audio capture (no BlackHole) — the
  *    shipped default on macOS 13+.
+ *  - "wasapi": native Windows system-audio capture via WASAPI loopback — the
+ *    shipped default on Windows.
  *  - "blackhole": ffmpeg reads a BlackHole/loopback avfoundation device.
  *  - "none": client-fed / fake (no backend capture).
  */
-export type AudioSource = 'screencapturekit' | 'blackhole' | 'none';
+export type AudioSource = 'screencapturekit' | 'wasapi' | 'blackhole' | 'none';
 
 /** Parse an env value as a port, falling back to `fallback` if invalid. */
 function parsePort(raw: string | undefined, fallback: number): number {

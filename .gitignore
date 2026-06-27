@@ -20,6 +20,8 @@ dist/
 # --- Compiled native capture helpers (build artifacts; source .swift kept) ---
 backend/native/macos/zeb-audio-capture
 backend/native/macos/zeb-audio-capture-*
+backend/native/windows/zeb-audio-capture.exe
+backend/native/windows/*.obj
 client/tool/gen_icon
 *.o
 
