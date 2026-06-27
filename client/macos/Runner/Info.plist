@@ -14,6 +14,10 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
+	<!-- User-facing display name (menu bar, Finder). The internal PRODUCT_NAME
+	     stays zeb_echo_client so the backend-launcher bundle paths don't change. -->
+	<key>CFBundleDisplayName</key>
+	<string>Echo</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

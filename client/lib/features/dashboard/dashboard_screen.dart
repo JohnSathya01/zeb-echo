@@ -5,6 +5,8 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import 'widgets/ai_response_panel.dart';
 import 'widgets/audio_status_indicator.dart';
+import 'widgets/echo_logo.dart';
+import 'widgets/recording_indicator.dart';
 import 'widgets/detected_question_panel.dart';
 import 'widgets/live_transcript_panel.dart';
 import 'widgets/session_controls.dart';
@@ -49,29 +51,32 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Sparing accent use: a single small mark next to the product name.
-          Container(
-            width: 10,
-            height: 10,
-            decoration: const BoxDecoration(
-              color: AppColors.accent,
-              shape: BoxShape.circle,
-            ),
-          ),
+          // Vector logo mark (echo ripples in the lime accent).
+          const EchoLogo(size: 34),
           const SizedBox(width: AppTheme.spaceSm),
-          // Brand wordmark: "zeb" plain + "Echo" in zeb's serif-italic accent.
-          Text.rich(
-            TextSpan(
-              style: textTheme.headlineSmall,
-              children: [
-                const TextSpan(text: 'zeb '),
-                TextSpan(
-                  text: 'Echo',
-                  style: textTheme.headlineSmall?.merge(AppTheme.brandEmphasis),
+          // Brand wordmark: "Echo" in zeb's serif-italic accent, with a small
+          // "powered by zeb" (lowercase) beneath it.
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Echo',
+                style: textTheme.headlineSmall?.merge(AppTheme.brandEmphasis),
+              ),
+              Text(
+                'powered by zeb',
+                style: textTheme.bodySmall?.copyWith(
+                  fontSize: 10,
+                  letterSpacing: 0.4,
+                  color: AppColors.textSecondary,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(width: AppTheme.spaceMd),
+          // Recording indicator: pulsing red dot while a session is running.
+          const RecordingIndicator(),
           const SizedBox(width: AppTheme.spaceMd),
           // Subtitle yields space first on narrow windows (truncates) so the
           // status indicator + controls never overflow.

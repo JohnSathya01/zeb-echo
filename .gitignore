@@ -20,6 +20,7 @@ dist/
 # --- Compiled native capture helpers (build artifacts; source .swift kept) ---
 backend/native/macos/zeb-audio-capture
 backend/native/macos/zeb-audio-capture-*
+client/tool/gen_icon
 *.o
 
 # --- Flutter / Dart client ---

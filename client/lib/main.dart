@@ -111,7 +111,7 @@ class ZebEchoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'zeb Echo',
+      title: 'Echo',
       debugShowCheckedModeBanner: false,
       // Premium dark theme is the only theme (CLAUDE.md §5).
       theme: AppTheme.dark(),

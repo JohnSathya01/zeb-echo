@@ -158,7 +158,7 @@ zeb-echo/
 | **M2** ✅ | CD builds Mac **and** Windows installers | Downloadable installers per OS (audio mac-only) | M |
 | **M3** | Windows WASAPI capture | Windows teammates get system audio | L |
 | **M4** ✅ | Secrets strategy (proxy or per-user) | Token not shipped in the app | M |
-| **M5** | macOS ScreenCaptureKit (drop BlackHole) | No per-user BlackHole/routing setup | L |
+| **M5** ✅ | macOS ScreenCaptureKit (drop BlackHole) | No per-user BlackHole/routing setup | L |
 | **M6** | Code signing + auto-update | No Gatekeeper/SmartScreen warnings | M |
 
 > **Status (2026-06-26):** M0–M2 + M4 implemented. The CD pipeline

@@ -30,14 +30,9 @@ void main() {
     // Let the fake connect() future settle.
     await tester.pump(const Duration(milliseconds: 300));
 
-    // Brand wordmark is rich text ("zeb " + italic "Echo"); match by the
-    // RichText's plain-text value rather than a single Text widget.
-    expect(
-      find.byWidgetPredicate(
-        (w) => w is RichText && w.text.toPlainText() == 'zeb Echo',
-      ),
-      findsOneWidget,
-    );
+    // Brand wordmark: "Echo" with a "powered by zeb" tagline beneath.
+    expect(find.text('Echo'), findsOneWidget);
+    expect(find.text('powered by zeb'), findsOneWidget);
     expect(find.text('LIVE TRANSCRIPT'), findsOneWidget);
     expect(find.text('DETECTED QUESTIONS'), findsOneWidget);
     expect(find.text('AI RESPONSE'), findsOneWidget);
