@@ -74,7 +74,9 @@ export class LlmQuestionDetectionService implements QuestionDetectionService {
 
     let raw: string;
     try {
-      raw = await this.provider.complete(prompt, { temperature: 0, maxTokens: 120 });
+      // 200 tokens: room for the question + one-sentence contextSummary JSON
+      // without truncation. Still tiny — no meaningful latency impact.
+      raw = await this.provider.complete(prompt, { temperature: 0, maxTokens: 200 });
     } catch (err) {
       // On any provider error, fail safe: emit nothing (the session continues).
       if (this.debug) {
@@ -102,6 +104,7 @@ export class LlmQuestionDetectionService implements QuestionDetectionService {
       questionId: `q-${this.counter}`,
       text: question,
       sourceSegmentId: segment.id,
+      contextSummary: parsed.contextSummary.trim(),
     };
   }
 
@@ -139,9 +142,14 @@ export class LlmQuestionDetectionService implements QuestionDetectionService {
       `system?". Replace pronouns like "it/that/this/they" with the actual ` +
       `subject from the conversation.\n` +
       `- Capture the question even when it is embedded mid-sentence ("And what ` +
-      `is an agent harness? Think of it...").\n\n` +
+      `is an agent harness? Think of it...").\n` +
+      `- Also write a ONE-SENTENCE "contextSummary": the topic/situation the ` +
+      `question sits in, drawn from the transcript (e.g. "Discussion about the ` +
+      `economic impact of AI coding tools and historical GDP growth."). This ` +
+      `grounds the downstream answer. Empty if there is no question.\n\n` +
       `Respond with ONLY a JSON object, no prose:\n` +
-      `{"isQuestion": true|false, "question": "<the full, self-contained question, or empty>"}`
+      `{"isQuestion": true|false, "question": "<the full, self-contained question, or empty>", ` +
+      `"contextSummary": "<one-sentence topic summary, or empty>"}`
     );
   }
 }
@@ -150,6 +158,7 @@ export class LlmQuestionDetectionService implements QuestionDetectionService {
 interface Decision {
   isQuestion: boolean;
   question: string;
+  contextSummary: string;
 }
 
 /** Parse the model's JSON decision, tolerating surrounding prose/code fences. */
@@ -159,10 +168,16 @@ function parseDecision(raw: string): Decision | null {
     return null;
   }
   try {
-    const obj = JSON.parse(match[0]) as { isQuestion?: unknown; question?: unknown };
+    const obj = JSON.parse(match[0]) as {
+      isQuestion?: unknown;
+      question?: unknown;
+      contextSummary?: unknown;
+    };
     return {
       isQuestion: obj.isQuestion === true,
       question: typeof obj.question === 'string' ? obj.question : '',
+      contextSummary:
+        typeof obj.contextSummary === 'string' ? obj.contextSummary : '',
     };
   } catch {
     return null;

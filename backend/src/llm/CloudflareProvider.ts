@@ -184,27 +184,34 @@ function buildMessages(
     .join(' ')
     .trim();
 
-  // The detected "question" is often just the FRAGMENT where detection fired
-  // (e.g. "How do you book") because speech is split across short STT windows.
-  // So we give the LLM the full recent transcript as the source of truth and
-  // use the fragment only as a pointer to which question to answer.
+  // The question detector already produced a self-contained question plus a
+  // one-line contextSummary (context engineering, no extra LLM call). We give
+  // the model: (1) that curated topic summary as the lead anchor, (2) the full
+  // recent transcript as supporting detail, (3) the resolved question. The
+  // summary focuses the model; the transcript supplies specifics.
+  const summary = request.contextSummary?.trim() ?? '';
+
   if (contextText.length > 0) {
+    const summaryBlock =
+      summary.length > 0 ? `Context: ${summary}\n\n` : '';
     messages.push({
       role: 'user',
       content:
+        summaryBlock +
         `Recent meeting transcript (most recent last):\n` +
         `"""\n${contextText}\n"""\n\n` +
-        `The most recent question in this conversation is around: "${request.prompt}".\n` +
-        `Speech-to-text may have split or mis-cut it, so silently work out the ` +
-        `actual question being asked from the transcript, then answer it.\n\n` +
-        `IMPORTANT: Reply with ONLY the answer itself — do NOT restate or quote ` +
-        `the question, and do NOT say things like "the full question appears to ` +
-        `be". Just give the answer directly, grounded in the conversation above.`,
+        `Question to answer: "${request.prompt}"\n\n` +
+        `Answer as a domain expert: lead with the direct answer, ground it in ` +
+        `the specifics discussed above (names, numbers, opinions raised), and ` +
+        `avoid generic filler. Reply with ONLY the answer — do NOT restate or ` +
+        `quote the question.`,
     });
   } else {
     messages.push({
       role: 'user',
-      content: `Answer this question directly: "${request.prompt}"`,
+      content:
+        (summary.length > 0 ? `Context: ${summary}\n\n` : '') +
+        `Answer this question directly, as a domain expert: "${request.prompt}"`,
     });
   }
 

@@ -9,10 +9,17 @@ import type { TranscriptSegment } from '../protocol/messages.js';
 export interface DetectedQuestion {
   /** Stable id (correlates with response tokens downstream). */
   readonly questionId: string;
-  /** The question text. */
+  /** The question text (self-contained — vague references already resolved). */
   readonly text: string;
   /** Id of the source transcript segment. */
   readonly sourceSegmentId: string;
+  /**
+   * One-line summary of the conversational context the question sits in, built
+   * by the detector's LLM call (context engineering, no extra round-trip).
+   * Passed to the response prompt so the answer is grounded without the model
+   * having to re-derive the topic from raw transcript. Empty/absent if none.
+   */
+  readonly contextSummary?: string;
 }
 
 export interface QuestionDetectionService {

@@ -17,12 +17,18 @@ export interface LlmParams {
 
 /** A single request to generate a response for a detected question. */
 export interface LlmRequest {
-  /** The detected question. */
+  /** The detected question (self-contained). */
   readonly prompt: string;
   /** Bounded recent conversation used as context. */
   readonly context: TranscriptSegment[];
   /** Generation parameters. */
   readonly params: LlmParams;
+  /**
+   * One-line summary of the conversational context, produced upstream by the
+   * question detector (context engineering). Optional — providers fall back to
+   * deriving context from the transcript when absent.
+   */
+  readonly contextSummary?: string;
 }
 
 /** The single seam every concrete LLM backend implements. */

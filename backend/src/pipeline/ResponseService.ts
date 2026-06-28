@@ -49,6 +49,10 @@ export class LlmResponseService implements ResponseService {
       prompt: question.text,
       context: [...bounded],
       params: this.params,
+      // Pass the detector's context summary through (no extra LLM call).
+      ...(question.contextSummary
+        ? { contextSummary: question.contextSummary }
+        : {}),
     };
     for await (const token of this.provider.generate(request)) {
       yield token;
