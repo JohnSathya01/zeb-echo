@@ -14,11 +14,13 @@ import type { DetectedQuestion } from './QuestionDetectionService.js';
 export interface ResponseService {
   /**
    * Generate a streamed response for `question`, using up to the last
-   * `context` segments as conversation context.
+   * `context` segments as conversation context and an optional Knowledge Base
+   * (Phase 3) as authoritative domain context.
    */
   respond(
     question: DetectedQuestion,
     context: readonly TranscriptSegment[],
+    knowledgeBase?: string,
   ): AsyncIterable<string>;
 }
 
@@ -42,6 +44,7 @@ export class LlmResponseService implements ResponseService {
   public async *respond(
     question: DetectedQuestion,
     context: readonly TranscriptSegment[],
+    knowledgeBase = '',
   ): AsyncIterable<string> {
     // Bound the context to the most recent N segments (§9: context window).
     const bounded = context.slice(-this.maxContextSegments);
@@ -53,6 +56,8 @@ export class LlmResponseService implements ResponseService {
       ...(question.contextSummary
         ? { contextSummary: question.contextSummary }
         : {}),
+      // Phase 3: user Knowledge Base as authoritative context.
+      ...(knowledgeBase.trim() ? { knowledgeBase: knowledgeBase.trim() } : {}),
     };
     for await (const token of this.provider.generate(request)) {
       yield token;

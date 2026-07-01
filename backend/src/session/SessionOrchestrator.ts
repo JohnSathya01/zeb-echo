@@ -18,6 +18,7 @@ import type { ResponseService } from '../pipeline/ResponseService.js';
 import type { TranscriptionService } from '../pipeline/TranscriptionService.js';
 import {
   PROTOCOL_VERSION,
+  type ResponseMode,
   type ServerMessage,
   type TranscriptSegment,
 } from '../protocol/messages.js';
@@ -56,6 +57,21 @@ export class SessionOrchestrator {
   private readonly context: TranscriptSegment[] = [];
   private readonly maxContext = 50;
   private readonly latencies: LatencySample[] = [];
+
+  /** Phase 3: user-provided Knowledge Base injected into every answer. */
+  private knowledgeBase = '';
+  /** Phase 3: 'auto' answers on detection; 'manual' waits for generate. */
+  private responseMode: ResponseMode = 'auto';
+  /**
+   * Phase 3: detected questions retained so a manual `response.generate` can
+   * rebuild the exact prompt (question + the context snapshot at detection).
+   * Bounded to avoid unbounded growth over a long session.
+   */
+  private readonly pendingQuestions = new Map<
+    string,
+    { question: DetectedQuestion; context: TranscriptSegment[] }
+  >();
+  private readonly maxPending = 30;
   /**
    * Delay (ms) between detecting a question and generating, so segments that
    * complete the question can arrive in context first. ~1 STT window.
@@ -184,26 +200,80 @@ export class SessionOrchestrator {
       text: question.text,
       sourceSegmentId: question.sourceSegmentId,
     });
-    // Fire-and-forget the response stream; errors are reported as status.
-    void this.respond(question);
+
+    // Retain the question + its context snapshot so manual mode can generate
+    // later. Snapshot now so the answer uses the context as it was when asked.
+    this.retainQuestion(question, [...this.context]);
+
+    // Manual mode: stop here — the user clicks ▶ (response.generate) to answer.
+    if (this.responseMode === 'manual') {
+      return;
+    }
+    // Automatic mode: fire-and-forget the response stream immediately.
+    void this.respond(question, [...this.context]);
   }
 
-  private async respond(question: DetectedQuestion): Promise<void> {
+  /** Retain a detected question (+ context) for on-demand manual generation. */
+  private retainQuestion(
+    question: DetectedQuestion,
+    context: TranscriptSegment[],
+  ): void {
+    this.pendingQuestions.set(question.questionId, { question, context });
+    // Evict oldest if over the cap (Map preserves insertion order).
+    while (this.pendingQuestions.size > this.maxPending) {
+      const oldest = this.pendingQuestions.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      this.pendingQuestions.delete(oldest);
+    }
+  }
+
+  // ------------------------------- Phase 3 API -----------------------------
+
+  /** Set/replace the session Knowledge Base (injected into every answer). */
+  public setKnowledgeBase(content: string): void {
+    this.knowledgeBase = content.trim();
+  }
+
+  /** Switch response generation mode (auto answers on detection; manual waits). */
+  public setResponseMode(mode: ResponseMode): void {
+    this.responseMode = mode;
+  }
+
+  /** Generate the answer for a previously-detected question (manual ▶). */
+  public async generateForQuestion(questionId: string): Promise<void> {
+    if (this.state !== 'running') {
+      return;
+    }
+    const pending = this.pendingQuestions.get(questionId);
+    if (pending === undefined) {
+      return; // Unknown/expired question id — ignore.
+    }
+    await this.respond(pending.question, pending.context);
+  }
+
+  private async respond(
+    question: DetectedQuestion,
+    contextSnapshot: TranscriptSegment[],
+  ): Promise<void> {
     const detectedAt = performance.now();
     let firstTokenLatencyMs: number | undefined;
 
-    // A question is often split across short STT windows (e.g. "How do you
-    // book" + "your hotels or flights today."). Wait briefly so the completing
-    // segments arrive in `this.context` before we build the prompt — then we
-    // pass the full recent transcript, not just the detected fragment.
+    // In auto mode we wait briefly so segments completing a split question
+    // arrive first; in manual mode the user already chose to answer, so the
+    // context is whatever was captured at detection (no extra wait).
     await new Promise((resolve) => setTimeout(resolve, this.responseDelayMs));
     if (this.state !== 'running') {
       return;
     }
-    const contextSnapshot = [...this.context];
 
     try {
-      for await (const token of this.deps.responseService.respond(question, contextSnapshot)) {
+      for await (const token of this.deps.responseService.respond(
+        question,
+        contextSnapshot,
+        this.knowledgeBase,
+      )) {
         if (firstTokenLatencyMs === undefined) {
           firstTokenLatencyMs = performance.now() - detectedAt;
           this.latencies.push({ questionId: question.questionId, firstTokenLatencyMs });

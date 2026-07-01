@@ -179,6 +179,19 @@ function buildMessages(
     { role: 'system', content: SYSTEM_PROMPT },
   ];
 
+  // Phase 3: inject the user's Knowledge Base as authoritative context, with
+  // clear precedence over the transcript / general knowledge.
+  const kb = request.knowledgeBase?.trim() ?? '';
+  if (kb.length > 0) {
+    messages.push({
+      role: 'system',
+      content:
+        `Authoritative knowledge base provided by the user. Treat these facts ` +
+        `as ground truth and prefer them over the transcript or general ` +
+        `knowledge when relevant:\n"""\n${kb}\n"""`,
+    });
+  }
+
   const contextText = request.context
     .map((segment: TranscriptSegment) => segment.text)
     .join(' ')

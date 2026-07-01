@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../state/providers.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import 'widgets/ai_response_panel.dart';
 import 'widgets/audio_status_indicator.dart';
 import 'widgets/echo_logo.dart';
+import 'widgets/knowledge_base_panel.dart';
 import 'widgets/recording_indicator.dart';
+import 'widgets/tab_switcher.dart';
 import 'widgets/detected_question_panel.dart';
 import 'widgets/live_transcript_panel.dart';
 import 'widgets/session_controls.dart';
@@ -21,15 +24,21 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(
+    final tab = ref.watch(selectedTabProvider);
+    return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _TopBar(),
-            Divider(height: 1),
-            Expanded(child: _DashboardBody()),
+            const _TopBar(),
+            const Divider(height: 1),
+            Expanded(
+              child: switch (tab) {
+                AppTab.dashboard => const _DashboardBody(),
+                AppTab.knowledgeBase => const KnowledgeBasePanel(),
+              },
+            ),
           ],
         ),
       ),
@@ -77,18 +86,10 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: AppTheme.spaceMd),
           // Recording indicator: pulsing red dot while a session is running.
           const RecordingIndicator(),
-          const SizedBox(width: AppTheme.spaceMd),
-          // Subtitle yields space first on narrow windows (truncates) so the
-          // status indicator + controls never overflow.
-          Flexible(
-            child: Text(
-              'Meeting Assistant',
-              style: textTheme.bodySmall,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-            ),
-          ),
-          const SizedBox(width: AppTheme.spaceMd),
+          const SizedBox(width: AppTheme.spaceLg),
+          // Tab switcher: Dashboard | Knowledge Base (Phase 3).
+          const TabSwitcher(),
+          const Spacer(),
           const AudioStatusIndicator(),
           const SizedBox(width: AppTheme.spaceLg),
           const SessionControls(),

@@ -300,6 +300,12 @@ class FakeBackendClient implements BackendClient {
       case AudioChunkMessage():
         // The fake ignores uploaded audio; it plays a canned script instead.
         break;
+      case KbSetMessage():
+      case ResponseModeMessage():
+      case ResponseGenerateMessage():
+        // Phase 3 control messages — the fake backend has no KB/manual pipeline,
+        // so these are accepted and ignored (the canned script still plays).
+        break;
     }
   }
 

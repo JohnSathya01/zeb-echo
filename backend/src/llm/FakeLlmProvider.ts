@@ -28,7 +28,13 @@ export class FakeLlmProvider implements LlmProvider {
     // Echo the question so callers can verify the request flowed through,
     // then stream the canned response word by word as "tokens".
     const preamble = request.prompt ? `Re: "${request.prompt}" — ` : '';
-    const text = preamble + CANNED_RESPONSE;
+    // Echo a KB marker when a Knowledge Base was injected, so tests can assert
+    // it flowed through the pipeline (Phase 3).
+    const kbMarker =
+      request.knowledgeBase && request.knowledgeBase.length > 0
+        ? `[KB:${request.knowledgeBase.length}] `
+        : '';
+    const text = preamble + kbMarker + CANNED_RESPONSE;
     for (const token of text.split(/(\s+)/).filter((t) => t.length > 0)) {
       await delay(this.tokenDelayMs);
       yield token;

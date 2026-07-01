@@ -29,6 +29,12 @@ export interface LlmRequest {
    * deriving context from the transcript when absent.
    */
   readonly contextSummary?: string;
+  /**
+   * User-provided Knowledge Base (Phase 3): authoritative domain knowledge
+   * injected into the prompt so answers can cite facts absent from the
+   * transcript. Optional.
+   */
+  readonly knowledgeBase?: string;
 }
 
 /** The single seam every concrete LLM backend implements. */

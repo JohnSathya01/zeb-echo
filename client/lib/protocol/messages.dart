@@ -244,6 +244,67 @@ class SourceToggleMessage extends ClientMessage {
       };
 }
 
+/// How responses are generated (Phase 3). Wire values `auto` / `manual`.
+enum ResponseMode { auto, manual }
+
+String _responseModeToWire(ResponseMode m) =>
+    m == ResponseMode.auto ? 'auto' : 'manual';
+
+/// `kb.set` — set/replace the session Knowledge Base text (Phase 3).
+///
+/// The backend injects this as authoritative context into the LLM prompt so
+/// answers can cite facts not present in the meeting transcript.
+class KbSetMessage extends ClientMessage {
+  const KbSetMessage({required this.content});
+
+  final String content;
+
+  @override
+  String get type => 'kb.set';
+
+  @override
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'type': type,
+        'version': protocolVersion,
+        'content': content,
+      };
+}
+
+/// `response.mode` — switch answer generation between automatic and manual.
+class ResponseModeMessage extends ClientMessage {
+  const ResponseModeMessage({required this.mode});
+
+  final ResponseMode mode;
+
+  @override
+  String get type => 'response.mode';
+
+  @override
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'type': type,
+        'version': protocolVersion,
+        'mode': _responseModeToWire(mode),
+      };
+}
+
+/// `response.generate` — (manual mode) generate the answer for a detected
+/// question on demand (the ▶ play button).
+class ResponseGenerateMessage extends ClientMessage {
+  const ResponseGenerateMessage({required this.questionId});
+
+  final String questionId;
+
+  @override
+  String get type => 'response.generate';
+
+  @override
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'type': type,
+        'version': protocolVersion,
+        'questionId': questionId,
+      };
+}
+
 /// `audio.chunk` — a binary PCM frame.
 ///
 /// On the wire this is sent as a binary frame (see [WebSocketBackendClient]),

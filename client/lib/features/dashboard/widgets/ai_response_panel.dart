@@ -20,17 +20,27 @@ class AiResponsePanel extends ConsumerWidget {
     final questions = ref.watch(detectedQuestionsProvider);
     final textTheme = Theme.of(context).textTheme;
 
-    final Widget trailing;
+    final Widget statusTrailing;
     if (response.isStreaming) {
-      trailing = const _StreamingDot();
+      statusTrailing = const _StreamingDot();
     } else if (response.latencyMs != null) {
-      trailing = Text(
+      statusTrailing = Text(
         '${response.latencyMs} ms',
         style: textTheme.bodySmall,
       );
     } else {
-      trailing = const SizedBox.shrink();
+      statusTrailing = const SizedBox.shrink();
     }
+
+    // Auto/Manual mode toggle (Phase 3) sits alongside the status indicator.
+    final trailing = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _ModeToggle(),
+        const SizedBox(width: AppTheme.spaceSm),
+        statusTrailing,
+      ],
+    );
 
     // Find the question text this response is answering (by id).
     final DetectedQuestion? answering = response.questionId == null
@@ -117,6 +127,85 @@ class _QuestionHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact Auto/Manual toggle for response generation (Phase 3). Auto answers
+/// as soon as a question is detected; Manual waits for the ▶ on each question.
+class _ModeToggle extends ConsumerWidget {
+  const _ModeToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(responseModeProvider);
+    final auto = mode == ResponseMode.auto;
+    return Tooltip(
+      message: auto
+          ? 'Automatic: answers generate on detection'
+          : 'Manual: click ▶ on a question to answer',
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundBlack,
+          borderRadius: BorderRadius.circular(AppTheme.radius - 2),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ModeChip(
+              label: 'Auto',
+              active: auto,
+              onTap: () =>
+                  ref.read(responseModeProvider.notifier).setMode(ResponseMode.auto),
+            ),
+            _ModeChip(
+              label: 'Manual',
+              active: !auto,
+              onTap: () => ref
+                  .read(responseModeProvider.notifier)
+                  .setMode(ResponseMode.manual),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = active ? AppColors.onAccent : AppColors.textSecondary;
+    return Material(
+      color: active ? AppColors.accent : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppTheme.radius - 4),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radius - 4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: fg,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ),
     );
   }

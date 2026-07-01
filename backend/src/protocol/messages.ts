@@ -119,13 +119,51 @@ export interface SourceToggleMessage {
   readonly enabled: boolean;
 }
 
+/**
+ * Set/replace the session Knowledge Base — free-text domain knowledge the user
+ * provides (Phase 3). Injected into the LLM prompt as authoritative context so
+ * answers can cite facts not present in the meeting transcript.
+ */
+export interface KbSetMessage {
+  readonly type: 'kb.set';
+  readonly version: ProtocolVersion;
+  /** Full KB text (replaces any previous KB). Empty clears it. */
+  readonly content: string;
+}
+
+/** How responses are generated (Phase 3). */
+export type ResponseMode = 'auto' | 'manual';
+
+/**
+ * Switch response generation between automatic (answer as soon as a question is
+ * detected) and manual (wait for an explicit `response.generate`).
+ */
+export interface ResponseModeMessage {
+  readonly type: 'response.mode';
+  readonly version: ProtocolVersion;
+  readonly mode: ResponseMode;
+}
+
+/**
+ * (Manual mode) Generate the answer for a previously-detected question, on user
+ * demand (the ▶ play button).
+ */
+export interface ResponseGenerateMessage {
+  readonly type: 'response.generate';
+  readonly version: ProtocolVersion;
+  readonly questionId: string;
+}
+
 /** Union of all messages the client may send to the backend. */
 export type ClientMessage =
   | SessionStartMessage
   | SessionPauseMessage
   | SessionStopMessage
   | SourceToggleMessage
-  | AudioChunkMessage;
+  | AudioChunkMessage
+  | KbSetMessage
+  | ResponseModeMessage
+  | ResponseGenerateMessage;
 
 export type ClientMessageType = ClientMessage['type'];
 
@@ -223,6 +261,9 @@ const CLIENT_MESSAGE_TYPES: ReadonlySet<string> = new Set<ClientMessageType>([
   'session.stop',
   'source.toggle',
   'audio.chunk',
+  'kb.set',
+  'response.mode',
+  'response.generate',
 ]);
 
 /**

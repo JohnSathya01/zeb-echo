@@ -277,6 +277,18 @@ export class WsGateway {
         // PCM normally arrives as a binary frame; a JSON audio.chunk envelope
         // carries no payload here, so there is nothing to push.
         break;
+      case 'kb.set':
+        // Phase 3: set/replace the session Knowledge Base.
+        orchestrator.setKnowledgeBase(message.content);
+        break;
+      case 'response.mode':
+        // Phase 3: switch auto/manual response generation.
+        orchestrator.setResponseMode(message.mode);
+        break;
+      case 'response.generate':
+        // Phase 3 (manual): generate the answer for a detected question.
+        void orchestrator.generateForQuestion(message.questionId);
+        break;
     }
   }
 

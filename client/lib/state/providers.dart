@@ -326,3 +326,61 @@ final audioSourcesProvider =
   ref.onDispose(sub.cancel);
   return notifier;
 });
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Knowledge Base + response mode (manual/automatic)
+// ---------------------------------------------------------------------------
+
+/// Which tab is showing in the main workspace.
+enum AppTab { dashboard, knowledgeBase }
+
+/// Currently-selected top-level tab.
+final selectedTabProvider =
+    StateProvider<AppTab>((ref) => AppTab.dashboard);
+
+/// Owns the Knowledge Base text and pushes it to the backend (`kb.set`) so it
+/// grounds every generated answer (Phase 3).
+class KnowledgeBaseNotifier extends StateNotifier<String> {
+  KnowledgeBaseNotifier(this._backend) : super('');
+
+  final BackendClient _backend;
+
+  /// Update the local KB text and send it to the backend.
+  void setContent(String content) {
+    state = content;
+    _backend.send(KbSetMessage(content: content));
+  }
+}
+
+final knowledgeBaseProvider =
+    StateNotifierProvider<KnowledgeBaseNotifier, String>((ref) {
+  return KnowledgeBaseNotifier(ref.watch(backendClientProvider));
+});
+
+/// Owns the response mode (auto = answer on detection; manual = wait for ▶).
+/// Sends `response.mode` to the backend on change (Phase 3).
+class ResponseModeNotifier extends StateNotifier<ResponseMode> {
+  ResponseModeNotifier(this._backend) : super(ResponseMode.auto);
+
+  final BackendClient _backend;
+
+  void setMode(ResponseMode mode) {
+    state = mode;
+    _backend.send(ResponseModeMessage(mode: mode));
+  }
+
+  void toggle() =>
+      setMode(state == ResponseMode.auto ? ResponseMode.manual : ResponseMode.auto);
+}
+
+final responseModeProvider =
+    StateNotifierProvider<ResponseModeNotifier, ResponseMode>((ref) {
+  return ResponseModeNotifier(ref.watch(backendClientProvider));
+});
+
+/// Request an answer for a specific detected question (manual mode ▶ button).
+void generateResponse(WidgetRef ref, String questionId) {
+  ref
+      .read(backendClientProvider)
+      .send(ResponseGenerateMessage(questionId: questionId));
+}
