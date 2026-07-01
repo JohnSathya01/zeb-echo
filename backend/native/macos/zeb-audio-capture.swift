@@ -61,6 +61,19 @@ final class AudioCapturer: NSObject, SCStreamOutput, SCStreamDelegate {
         log("capturing system audio (16kHz mono s16le → stdout)")
     }
 
+    /// Gracefully end the capture so macOS clears the screen-recording session
+    /// (otherwise the menu-bar "Currently Sharing" indicator lingers as a ghost
+    /// after the process dies). Called from the SIGTERM/SIGINT handler.
+    func stop() {
+        stream?.stopCapture { _ in
+            exit(0)
+        }
+        // Safety net: if the completion never fires, still exit promptly.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+            exit(0)
+        }
+    }
+
     // Lazily build a converter from SCK's PCM format to our 16kHz mono s16le.
     private func makeConverter(from input: AVAudioFormat) {
         guard
@@ -166,6 +179,23 @@ Task {
     }
 }
 
-// Run until killed (the backend manages our lifecycle via SIGTERM).
-signal(SIGTERM, SIG_DFL)
+// Gracefully stop the SCStream on SIGTERM/SIGINT so macOS clears the screen-
+// recording session (no lingering "Currently Sharing" ghost). We use
+// DispatchSourceSignal (which can run Swift closures) instead of a raw C
+// handler; ignore the default disposition first so the source handles it.
+func installSignalHandler(_ sig: Int32) -> DispatchSourceSignal {
+    signal(sig, SIG_IGN)
+    let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+    src.setEventHandler {
+        log("received signal \(sig); stopping capture")
+        capturer.stop()
+    }
+    src.resume()
+    return src
+}
+
+let sigterm = installSignalHandler(SIGTERM)
+let sigint = installSignalHandler(SIGINT)
+_ = (sigterm, sigint) // keep the sources alive
+
 RunLoop.main.run()
