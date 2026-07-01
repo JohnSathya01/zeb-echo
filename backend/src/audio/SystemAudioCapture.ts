@@ -90,6 +90,15 @@ export class SystemAudioCapture {
   private running = false;
   private restartTimer: NodeJS.Timeout | null = null;
   private gotData = false;
+  /** Consecutive transient-restart count (backoff + cap). Reset on real data. */
+  private restarts = 0;
+  private static readonly maxRestarts = 5;
+  /**
+   * The SCK/WASAPI helper exits with this code when system-audio recording
+   * permission is missing. Retrying can't fix it (the user must grant + relaunch),
+   * so we stop retrying and surface a clear status instead of re-prompting.
+   */
+  private static readonly permissionExitCode = 3;
 
   constructor(config: SystemAudioCaptureConfig) {
     this.config = config;
@@ -170,6 +179,7 @@ export class SystemAudioCapture {
       }
       if (!this.gotData) {
         this.gotData = true;
+        this.restarts = 0; // healthy capture — clear the transient-retry count
         this.emitStatus(true, `Capturing audio from device :${this.config.deviceIndex}`);
       }
       this.onData(data);
@@ -187,9 +197,30 @@ export class SystemAudioCapture {
       if (!this.running) {
         return; // intentional stop
       }
-      // Transient device error (avfoundation often returns 255 when the device
-      // momentarily has no stream). Retry a few times before giving up.
-      console.warn(`[audio] ffmpeg exited with code ${code}; retrying capture…`);
+
+      // Permission denied: retrying just re-triggers the OS prompt forever.
+      // Stop, and tell the user exactly what to do (grant + relaunch).
+      if (code === SystemAudioCapture.permissionExitCode) {
+        console.warn('[audio] capture helper: screen-recording permission missing.');
+        this.emitStatus(
+          false,
+          'Screen Recording permission needed. Grant it in System Settings › ' +
+            'Privacy & Security › Screen & System Audio Recording, then restart Echo.',
+        );
+        return; // do NOT retry
+      }
+
+      // Transient device error (e.g. avfoundation returns 255 when a device
+      // momentarily has no stream). Retry with backoff, capped.
+      if (this.restarts >= SystemAudioCapture.maxRestarts) {
+        console.warn(`[audio] capture failed ${this.restarts}× (code ${code}); giving up.`);
+        this.emitStatus(false, `Audio capture failed repeatedly (code ${code}).`);
+        return;
+      }
+      this.restarts += 1;
+      console.warn(
+        `[audio] capture exited (code ${code}); retry ${this.restarts}/${SystemAudioCapture.maxRestarts}…`,
+      );
       this.emitStatus(false, `Audio capture interrupted (code ${code}); retrying`);
       this.scheduleRestart();
     });
@@ -199,12 +230,14 @@ export class SystemAudioCapture {
     if (this.restartTimer !== null || !this.running) {
       return;
     }
+    // Exponential backoff: 1s, 2s, 4s… so a persistent failure doesn't spin.
+    const delayMs = 1_000 * 2 ** (this.restarts - 1);
     this.restartTimer = setTimeout(() => {
       this.restartTimer = null;
       if (this.running) {
         this.spawnFfmpeg();
       }
-    }, 1_000);
+    }, delayMs);
   }
 
   /** Stop capturing and release ffmpeg. */
