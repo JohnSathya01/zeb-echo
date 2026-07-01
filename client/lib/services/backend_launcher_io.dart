@@ -56,6 +56,10 @@ class IoBackendLauncher implements BackendLauncher {
     final env = <String, String>{
       'PORT': '$port',
       'HOST': _config.host,
+      // Watchdog: the backend exits when THIS app process is gone, so quitting
+      // the app never leaves an orphaned backend (which would keep the macOS
+      // screen-recording session alive). `pid` is the Flutter process id.
+      'PARENT_PID': '$pid',
       // Point the backend at the bundled ffmpeg (it isn't on a teammate's PATH).
       if (ffmpegPath != null) 'FFMPEG_PATH': ffmpegPath,
       // macOS ScreenCaptureKit helper (system audio without BlackHole).

@@ -38,6 +38,27 @@ const WASAPI_HELPER_PATH =
 /** How system audio is captured. */
 export type CaptureKind = 'ffmpeg' | 'screencapturekit' | 'wasapi';
 
+/**
+ * Registry of live capture child processes (ffmpeg / SCK / WASAPI helpers).
+ * These hold OS resources — notably the macOS screen-recording session — so we
+ * must guarantee they die when the backend exits, even on a hard shutdown where
+ * per-connection cleanup may not run. {@link killAllCaptureProcesses} is called
+ * synchronously from the process exit handlers.
+ */
+const liveCaptureProcs = new Set<ChildProcessWithoutNullStreams>();
+
+/** Force-kill every live capture child. Safe to call multiple times. */
+export function killAllCaptureProcesses(): void {
+  for (const proc of liveCaptureProcs) {
+    try {
+      proc.kill('SIGKILL');
+    } catch {
+      // Already dead — ignore.
+    }
+  }
+  liveCaptureProcs.clear();
+}
+
 /** Listener for captured PCM chunks. */
 export type AudioChunkListener = (chunk: Buffer) => void;
 
@@ -139,6 +160,7 @@ export class SystemAudioCapture {
     const { command, args } = this.captureCommand();
     const proc = spawn(command, args);
     this.proc = proc;
+    liveCaptureProcs.add(proc);
 
     proc.stdout.on('data', (data: Buffer) => {
       // Ignore late buffered frames after stop() so we don't re-emit a
@@ -160,6 +182,7 @@ export class SystemAudioCapture {
       this.emitStatus(false, `ffmpeg failed to start: ${err.message}`);
     });
     proc.on('close', (code) => {
+      liveCaptureProcs.delete(proc);
       this.proc = null;
       if (!this.running) {
         return; // intentional stop
@@ -193,6 +216,7 @@ export class SystemAudioCapture {
       this.restartTimer = null;
     }
     if (this.proc !== null) {
+      liveCaptureProcs.delete(this.proc);
       this.proc.kill('SIGTERM');
       this.proc = null;
     }
